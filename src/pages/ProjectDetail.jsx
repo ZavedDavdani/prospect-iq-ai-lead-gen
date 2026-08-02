@@ -161,32 +161,38 @@ function ProjectDetail() {
 
   const handleEnrich = async (lead) => {
     setEnrichingId(lead.id)
+    const toastId = toast.loading(`Enriching ${lead.name}...`)
 
-    const result = await enrichLead(lead)
+    try {
+      const result = await enrichLead(lead)
 
-    const { error } = await supabase
-      .from('leads')
-      .update({ enrichment_data: result })
-      .eq('id', lead.id)
+      const { error } = await supabase
+        .from('leads')
+        .update({ enrichment_data: result })
+        .eq('id', lead.id)
 
-    setEnrichingId(null)
+      if (error) {
+        toast.error('Failed to save enrichment data', { id: toastId })
+        return
+      }
 
-    if (error) {
-      toast.error('Failed to save enrichment data')
-      return
+      if (result.isMock) {
+        toast.warning(result.reason || 'Used fallback enrichment data', { id: toastId })
+      } else {
+        toast.success('Lead enriched successfully', { id: toastId })
+      }
+
+      fetchLeads()
+    } catch (err) {
+      toast.error(err.message || 'Failed to enrich lead', { id: toastId })
+    } finally {
+      setEnrichingId(null)
     }
-
-    if (result.isMock) {
-      toast.warning(result.reason || 'Used fallback enrichment data')
-    } else {
-      toast.success('Lead enriched successfully')
-    }
-
-    fetchLeads()
   }
 
   const handleScore = async (lead) => {
     setScoringId(lead.id)
+    const toastId = toast.loading(`Scoring ${lead.name}...`)
 
     try {
       const { score, explanation, criteria } = await scoreLead(lead, project)
@@ -197,14 +203,14 @@ function ProjectDetail() {
         .eq('id', lead.id)
 
       if (error) {
-        toast.error('Failed to save score')
+        toast.error('Failed to save score', { id: toastId })
         return
       }
 
-      toast.success(`Scored ${score}/100`)
+      toast.success(`Scored ${score}/100`, { id: toastId })
       fetchLeads()
     } catch (err) {
-      toast.error(err.message || 'Failed to score lead. Please try again.')
+      toast.error(err.message || 'Failed to score lead. Please try again.', { id: toastId })
     } finally {
       setScoringId(null)
     }
@@ -240,14 +246,16 @@ function ProjectDetail() {
 
   const handleGenerateOutreach = async () => {
     setOutreachGenerating(true)
+    const toastId = toast.loading('Drafting outreach...')
+
     try {
       const result = await generateOutreach(outreachLead, project, outreachTone)
       setEmailSubject(result.emailSubject)
       setEmailBody(result.emailBody)
       setLinkedinMessage(result.linkedinMessage)
-      toast.success('Outreach drafted')
+      toast.success('Outreach drafted', { id: toastId })
     } catch (err) {
-      toast.error(err.message || 'Failed to generate outreach. Please try again.')
+      toast.error(err.message || 'Failed to generate outreach. Please try again.', { id: toastId })
     } finally {
       setOutreachGenerating(false)
     }
@@ -262,6 +270,7 @@ function ProjectDetail() {
     }
 
     setRewritingField(field)
+    const toastId = toast.loading('Rewriting...')
 
     try {
       const targetTone = action === 'tone' ? outreachTone : null
@@ -273,9 +282,9 @@ function ProjectDetail() {
         setLinkedinMessage(rewritten)
       }
 
-      toast.success('Rewritten')
+      toast.success('Rewritten', { id: toastId })
     } catch (err) {
-      toast.error('Failed to rewrite. Please try again.')
+      toast.error(err.message || 'Failed to rewrite. Please try again.', { id: toastId })
     } finally {
       setRewritingField(null)
     }
